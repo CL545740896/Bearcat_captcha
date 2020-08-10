@@ -1,0 +1,11 @@
+{
+  "train_dir": "train_dataset",
+  "validation_dir": "validation_dataset",
+  "test_dir": "test_dataset",
+  "image_suffix": "jpg",
+  "characters": "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  "count": 20000,
+  "char_count": [4,5,6],
+  "width": 100,
+  "height": 40
+}

@@ -1,0 +1,8 @@
+Flask==1.1.2
+numpy==1.19.1
+loguru==0.5.1
+matplotlib==3.3.0
+requests==2.24.0
+tqdm==4.48.0
+django_recaptcha==2.0.6
+captcha==0.3

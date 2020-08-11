@@ -203,15 +203,19 @@ import re
 import os
 import time
 import json
+import glob
 import shutil
 import base64
 import random
 import numpy as np
+import pandas as pd
+from PIL import Image
 from tqdm import tqdm
 import tensorflow as tf
 from loguru import logger
 from functools import reduce
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from {work_path}.{project_name}.settings import MODE
 from {work_path}.{project_name}.settings import validation_path
 from {work_path}.{project_name}.settings import test_path
@@ -266,30 +270,40 @@ class Image_Processing(object):
 
     @classmethod
     # 提取全部图片plus
-    def extraction_image(self, path: str) -> list:
-        try:
-            data_path = []
-            datas = [os.path.join(path, i) for i in os.listdir(path)]
-            for data in datas:
-                data_path = data_path + [os.path.join(data, i) for i in os.listdir(data)]
+    def extraction_image(self, path: str, mode=MODE, shuffix='jpg') -> list:
+        if mode == 'tagging':
+            data_path = glob.glob(f'{{path}}/*.{{shuffix}}')
+            lable_file = glob.glob(f'{{path}}/*.xlsx')[0]
+            df = pd.read_excel(lable_file, header=None)
+            df_path = [os.path.split(i)[-1] for i in df[0]]
+            df_lable = df[1]
+            dicts = dict((index, name) for index, name in zip(df_path, df_lable))
+            with open('n_class.json', 'w', encoding='utf-8') as f:
+                f.write(json.dumps(dicts, ensure_ascii=False))
             return data_path
-        except:
-            return [os.path.join(path, i) for i in os.listdir(path)]
+        else:
+            try:
+                data_path = []
+                datas = [os.path.join(path, i) for i in os.listdir(path)]
+                for data in datas:
+                    data_path = data_path + [os.path.join(data, i) for i in os.listdir(data)]
+                return data_path
+            except:
+                return [os.path.join(path, i) for i in os.listdir(path)]
 
     # 增强图片
     @classmethod
     def preprosess_save_images(self, image_path, size):
         logger.debug(f'开始处理{{image_path}}')
-        image_name = os.path.splitext(os.path.split(image_path)[-1])[0]
-        image_suffix = os.path.splitext(os.path.split(image_path)[-1])[-1]
+        image_name, image_suffix = os.path.splitext(os.path.split(image_path)[-1])
         img_raw = tf.io.read_file(image_path)
         img_tensor = tf.image.decode_jpeg(img_raw, channels=IMAGE_CHANNALS)
         # img_tensor_up = tf.image.flip_up_down(img_tensor)
         # img_tensor_a = tf.image.resize(img_tensor, size)
         # 旋转
-        img_tensor_rotated_90 = tf.image.resize(tf.image.rot90(img_tensor), size)
-        img_tensor_rotated_180 = tf.image.resize(tf.image.rot90(tf.image.rot90(img_tensor)), size)
-        img_tensor_rotated_270 = tf.image.resize(tf.image.rot90(tf.image.rot90(tf.image.rot90(img_tensor))), size)
+        # img_tensor_rotated_90 = tf.image.resize(tf.image.rot90(img_tensor), size)
+        # img_tensor_rotated_180 = tf.image.resize(tf.image.rot90(tf.image.rot90(img_tensor)), size)
+        # img_tensor_rotated_270 = tf.image.resize(tf.image.rot90(tf.image.rot90(tf.image.rot90(img_tensor))), size)
         # 对比度
         img_tensor_contrast1 = tf.image.resize(tf.image.adjust_contrast(img_tensor, 1), size)
 
@@ -321,9 +335,9 @@ class Image_Processing(object):
         img_tensor_standardization = tf.image.resize(tf.image.per_image_standardization(img_tensor), size)
         # img_tensor = tf.cast(img_tensor, tf.float32)
         # img_tensor = img_tensor / 255
-        image_tensor = [img_tensor_rotated_90, img_tensor_rotated_180, img_tensor_rotated_270, img_tensor_contrast1,
-                        img_tensor_contrast9, img_tensor_saturated_1, img_tensor_saturated_9, img_tensor_brightness_1,
-                        img_tensor_brightness_4, img_tensor_hue1, img_tensor_hue9, img_tensor_standardization]
+        image_tensor = [img_tensor_contrast1, img_tensor_contrast9, img_tensor_saturated_1, img_tensor_saturated_9,
+                        img_tensor_brightness_1, img_tensor_brightness_4, img_tensor_hue1, img_tensor_hue9,
+                        img_tensor_standardization]
         for index, i in tqdm(enumerate(image_tensor), desc='正在生成图片'):
             img_tensor = np.asarray(i.numpy(), dtype='uint8')
             img_tensor = tf.image.encode_jpeg(img_tensor)
@@ -334,21 +348,36 @@ class Image_Processing(object):
 
     @classmethod
     # 展示图片处理后的效果
-    def show_image(self, image_path):
+    def show_image(self, image_path, mode=MODE):
         '''
         展示图片处理后的效果
         :param image_path:
         :return:
         '''
-        img_raw = tf.io.read_file(image_path)
-        img_tensor = tf.image.decode_jpeg(img_raw, channels=IMAGE_CHANNALS)
-        img_tensor = tf.image.resize(img_tensor, [IMAGE_HEIGHT, IMAGE_WIDTH])
-        img_tensor = tf.cast(img_tensor, tf.float32)
-        img_tensor = np.asarray(img_tensor.numpy(), dtype='uint8')
-        print(img_tensor.shape)
-        print(img_tensor.dtype)
-        plt.imshow(img_tensor)
-        plt.show()
+        if mode == 'tagging':
+            im = tf.io.read_file(image_path)
+            img_tensor = tf.image.decode_image(im)
+            img_tensor = tf.cast(img_tensor, tf.float32)
+            img_tensor = np.asarray(img_tensor.numpy(), dtype='uint8')
+            # print(img_tensor.shape)
+            # print(img_tensor.dtype)
+            plt.imshow(img_tensor)
+            # plt.show()
+            xmax, ymax, xmin, ymin = [183, 33, 68, 70]
+            rect = Rectangle((xmin, ymin), (xmax - xmin), (ymax - ymin), fill=False, color='red')
+            ax = plt.gca()
+            ax.axes.add_patch(rect)
+            plt.show()
+        else:
+            img_raw = tf.io.read_file(image_path)
+            img_tensor = tf.image.decode_jpeg(img_raw, channels=IMAGE_CHANNALS)
+            img_tensor = tf.image.resize(img_tensor, [IMAGE_HEIGHT, IMAGE_WIDTH])
+            img_tensor = tf.cast(img_tensor, tf.float32)
+            img_tensor = np.asarray(img_tensor.numpy(), dtype='uint8')
+            print(img_tensor.shape)
+            print(img_tensor.dtype)
+            plt.imshow(img_tensor)
+            plt.show()
 
     @classmethod
     # 对图片进行解码,预测
@@ -530,6 +559,11 @@ class Image_Processing(object):
                 lable_list = [self.text2vector(i, mode=mode, dicts=dicts) for i in paths]
                 lable_list = [self.lable2vector_ocr(i) for i in lable_list]
                 return lable_list
+        elif mode == 'tagging':
+            with open('n_class.json', 'r') as f:
+                dicts = json.loads(f.read())
+            lable_list = [(os.path.split(name)[-1], Image.open(size).size) for name, size in zip(path_list, path_list)]
+            logger.debug(lable_list)
         else:
             raise ValueError(f'没有mode={{mode}}提取标签的方法')
 
@@ -874,6 +908,7 @@ def cheak_path(path):
             path = os.path.join(paths, name + mix)
         if not os.path.exists(path):
             return path
+
 """
 
 
@@ -1717,4 +1752,4 @@ class New_Work(object):
 
 
 if __name__ == '__main__':
-    New_Work(work_path='works', project_name='project').main()
+    New_Work(work_path='works', project_name='project_yunpian').main()

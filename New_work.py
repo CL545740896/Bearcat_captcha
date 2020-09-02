@@ -31,11 +31,11 @@ class CallBack(object):
             value = Image_Processing.extraction_image(checkpoint_path)
             extract_num = [os.path.splitext(os.path.split(i)[-1])[0] for i in value]
             num = [re.split('-', i) for i in extract_num]
-            accs = [float(i[-1]) for i in num]
+            accs = [0-float(i[-1]) for i in num]
             losses = [float('-' + str(abs(float(i[-2])))) for i in num]
             index = [loss for acc, loss in zip(accs, losses)]
             model_dict = dict((ind, val) for ind, val in zip(index, value))
-            return model_dict.get(min(index))
+            return model_dict.get(max(index))
         else:
             logger.debug('没有可用的检查点')
 
@@ -2299,6 +2299,20 @@ class WordAccuracy(tf.keras.metrics.Metric):
         self.total.assign(0)
 
 
+class Mymodel(object):
+    @staticmethod
+    def identity_block(x, filters, l1=0.001, l2=0.001, rate=0.2):
+        with tf.device('/cpu:0'):
+            y = x
+            x = tf.keras.layers.Conv2D(filters=filters, kernel_size=(3, 3), padding='same',
+                                       kernel_regularizer=tf.keras.regularizers.l1_l2(l1=l1, l2=l2),
+                                       kernel_initializer=tf.keras.initializers.he_normal())(x)
+            x = tf.keras.layers.Dropout(rate=rate)(x)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.nn.swish(x)
+            return tf.concat([x, y], axis=-1)
+
+
 class Models(object):
 
     @staticmethod
@@ -2323,29 +2337,40 @@ class Models(object):
     @staticmethod
     def captcha_model_ctc():
         inputs = tf.keras.layers.Input(shape=inputs_shape)
-        x = tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu')(inputs)
-        x = tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu')(x)
-        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), padding='valid')(x)
-        x = tf.keras.layers.Conv2D(filters=128, kernel_size=3, padding='same', activation='relu')(x)
-        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), padding='valid')(x)
-        x = tf.keras.layers.Conv2D(filters=256, kernel_size=3, padding='same')(x)
+        x = tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation=tf.keras.activations.swish,
+                                   kernel_initializer=tf.keras.initializers.he_normal())(
+            inputs)
+        # x = tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu')(x)
+        x = Mymodel.identity_block(x, 64)
+        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
+        # x = tf.keras.layers.Conv2D(filters=128, kernel_size=3, padding='same', activation='relu')(x)
+        x = Mymodel.identity_block(x, 128)
+        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
+        # x = tf.keras.layers.Conv2D(filters=256, kernel_size=3, padding='same')(x)
+        x = Mymodel.identity_block(x, 256)
         x = tf.keras.layers.BatchNormalization(epsilon=1e-05, axis=1, momentum=0.1)(x)
-        x = tf.keras.layers.Conv2D(filters=256, kernel_size=3, padding='same')(x)
+        # x = tf.keras.layers.Conv2D(filters=256, kernel_size=3, padding='same')(x)
+        x = Mymodel.identity_block(x, 256)
         x = tf.keras.layers.ZeroPadding2D(padding=(0, 1))(x)
-        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 1), padding='valid')(x)
-        x = tf.keras.layers.Conv2D(filters=512, kernel_size=3, padding='same', activation='relu')(x)
+        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 1), padding='same')(x)
+        # x = tf.keras.layers.Conv2D(filters=512, kernel_size=3, padding='same', activation='relu')(x)
+        x = Mymodel.identity_block(x, 512)
         x = tf.keras.layers.BatchNormalization(epsilon=1e-05, axis=1, momentum=0.1)(x)
-        x = tf.keras.layers.Conv2D(filters=512, kernel_size=3, padding='same', activation='relu')(x)
+        # x = tf.keras.layers.Conv2D(filters=512, kernel_size=3, padding='same', activation='relu')(x)
+        x = Mymodel.identity_block(x, 512)
         x = tf.keras.layers.ZeroPadding2D(padding=(0, 1))(x)
-        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 1), padding='valid')(x)
+        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 1), padding='same')(x)
 
-        x = tf.keras.layers.Conv2D(filters=512, kernel_size=2, padding='valid', activation='relu')(x)
+        x = tf.keras.layers.Conv2D(filters=512, kernel_size=2, padding='same', activation=tf.keras.activations.swish,
+                                   kernel_initializer=tf.keras.initializers.he_normal())(x)
         x = tf.keras.layers.BatchNormalization(epsilon=1e-05, axis=1, momentum=0.1)(x)
         x = tf.keras.layers.Reshape((-1, 512))(x)
         x = tf.keras.layers.Bidirectional(
             tf.keras.layers.GRU(units=256, return_sequences=True, use_bias=True, recurrent_activation='sigmoid'))(x)
+        x = tf.keras.layers.Dropout(0.2)(x)
         x = tf.keras.layers.Bidirectional(
             tf.keras.layers.GRU(units=256, return_sequences=True, use_bias=True, recurrent_activation='sigmoid'))(x)
+        x = tf.keras.layers.Dropout(0.2)(x)
         outputs = tf.keras.layers.Dense(units=Settings.settings())(x)
         model = tf.keras.Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer=tf.keras.optimizers.Nadam(learning_rate=LR, beta_1=0.5, beta_2=0.9),
@@ -2398,7 +2423,6 @@ if __name__ == '__main__':
     model.summary()
     model._layers = [layer for layer in model.layers if not isinstance(layer, dict)]
     tf.keras.utils.plot_model(model, show_shapes=True)
-
 
 """
 
@@ -2513,13 +2537,13 @@ LR = 1e-3
 EPOCHS = 100
 
 # batsh批次
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 
 # 训练多少轮验证损失下不去，学习率/10
-LR_PATIENCE = 2
+LR_PATIENCE = 16
 
 # 训练多少轮验证损失下不去，停止训练
-EARLY_PATIENCE = 4
+EARLY_PATIENCE = 64
 
 # 图片高度
 IMAGE_HEIGHT = 40

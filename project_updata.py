@@ -27,13 +27,13 @@ LR = 1e-3
 EPOCHS = 100
 
 # batsh批次
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 
 # 训练多少轮验证损失下不去，学习率/10
-LR_PATIENCE = 2
+LR_PATIENCE = 16
 
 # 训练多少轮验证损失下不去，停止训练
-EARLY_PATIENCE = 4
+EARLY_PATIENCE = 64
 
 # 图片高度
 IMAGE_HEIGHT = 40

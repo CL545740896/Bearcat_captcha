@@ -8,6 +8,8 @@
         2.1项目结构描述
 ##### 3.识别验证码的思路
 
+##### 4.遇到的错误和解决方法
+
 ***注意任何时候你都应该备份你的数据集，数据集来之不易***
 
 ***注意任何时候你都应该备份你的数据集，数据集来之不易***
@@ -16,7 +18,9 @@
 
 # 1.项目环境安装与启动
 ## 1.1 GPU环境安装
-本项目在tensorflow2.1或2.2下面都可以运行
+tennsorflow2.1已经无法运行本项目
+
+本项目在tensorflow2.2或2.3下面都可以运行
 
 但是两种的安装方法都有区别下面详细说一下(windowns环境):
 
@@ -34,15 +38,6 @@ pip install tensorflow==2.2 -i https://pypi.douban.com
 
 pip install -r requirements.txt -i https://pypi.douban.com/simple
 
-    tensorflow2.1
-    1.安装CUDA 10版本 (官网)[https://developer.nvidia.com/cuda-toolkit]
-    2.由于CUDA会自动配好环境本项目不在详述 在命令行输入 nvcc -V 查看CUDA版本
-    3.安装conda (推荐在清华镜像站下载Anaconda或者Miniconda都可以)
-    4.更新一下conda (conda update -n base conda)
-    5.创建python3.7.7的虚拟环境并进入 (conda create -n example python=3.7.7) (conda activate example)
-    6.安装tensorflow2.1 (conda install tensorflow-gpu==2.1)
-    7.再安装其他依赖 (pip install -r requirements.txt -i https://pypi.douban.com/simple)
-    
     tensorflow2.2
     1.安装CUDA 11版本 (官网)[https://developer.nvidia.com/cuda-toolkit]
     2.由于CUDA会自动配好环境本项目不在详述 在命令行输入 nvcc -V 查看CUDA版本
@@ -52,16 +47,27 @@ pip install -r requirements.txt -i https://pypi.douban.com/simple
     6.安装tensorflow2.2 (pip install tensorflow-gpu==2.2 -i https://pypi.douban.com/simple)
     7.安装cudnn (conda install cudatoolkit=10.1 cudnn=7.6.5)
     8.再安装其他依赖 (pip install -r requirements.txt -i https://pypi.douban.com/simple)
-
+    
+    tensorflow2.3
+    1.安装CUDA 11版本 (官网)[https://developer.nvidia.com/cuda-toolkit]
+    2.由于CUDA会自动配好环境本项目不在详述 在命令行输入 nvcc -V 查看CUDA版本
+    3.安装conda (推荐在清华镜像站下载Anaconda或者Miniconda都可以)
+    4.更新一下conda (conda update -n base conda)
+    5.创建python3.7.7的虚拟环境并进入 (conda create -n example python=3.7.7) (conda activate example)
+    6.安装tensorflow2.3 (pip install tensorflow-gpu==2.3 -i https://pypi.douban.com/simple)
+    7.安装cudnn (conda install cudatoolkit=10.1 cudnn=7.6.5)
+    8.再安装其他依赖 (pip install -r requirements.txt -i https://pypi.douban.com/simple)
+    
 ## 1.2 项目启动
 
-### 项目基于tensorflow2.1(2.2也可以)
+### 项目基于tensorflow2.2(2.3也可以)
     项目的输入图片的格式为.jpg
     不是.jpg后缀也不用慌本项目有修改后缀的代码
     后面会介绍
 
 ### 项目启动
-    ps:不想自己练的直接运行app.py
+    ps:不想自己练的拉取分支
+    直接运行app.py
     默认开启5006端口,post请求接受一个参数img
     需要base64一下,具体请看spider_example.py
     
@@ -96,6 +102,7 @@ pip install -r requirements.txt -i https://pypi.douban.com/simple
 ### 第三步:修改配置文件
 
     这个后面在详细说先用默认设置启动项目吧
+    默认为ORDINARY模式(categorical_crossentropy损失)
 
 ### 第四步:打包数据
 
@@ -132,15 +139,16 @@ pip install -r requirements.txt -i https://pypi.douban.com/simple
 ### 第十一步:调用接口
 
     先运行本项目给的例子感受一下
+    注意：这是微博的验证码
     python spider_example.py
 
 ##下面开始补充刚刚省略的一些地方,由于设置文件备注比较完善，解释部分参数
 
 ### MODE
     目前一共三种
-    'ordinary'      微博加搜狗
-    'n_class'       12306图片
-    'ordinary_ocr'  12306文字
+    'ORDINARY'      默认模式
+    'NUM_CLASSES'   图片分类
+    'CTC'           文字识别
     
     
 
@@ -156,6 +164,8 @@ pip install -r requirements.txt -i https://pypi.douban.com/simple
 这个数字要取你要识别验证码的最大长度,不足的会自动用'_'补齐
 
 否则会报错raise ValueError
+
+注意CTC模式这个参数不在起作用
 
 ### BATCH_SIZE
 
@@ -173,13 +183,10 @@ pip install -r requirements.txt -i https://pypi.douban.com/simple
 
     EARLY_PATIENCE = 8
     
-定义模型的方法名字,模型在models.py里的Model类 (一个方法就是一个网络)
+定义模型的方法名字,模型在models.py里的Model类 (一个方法就是一个模型)
 
     MODEL = 'captcha_model'
 
-是否使用多模型预测 (人多力量大奥利给)
-
-    MULITI_MODEL_PREDICTION = False
 
 其他设置如果没有特别情况，尽量不要改
 
@@ -200,6 +207,9 @@ pip install -r requirements.txt -i https://pypi.douban.com/simple
     
 ### CSVLogger
     把训练轮结果数据流到 csv 文件
+    
+### 标签存放路径
+    待更新暂时无法使用
 
 ### logs
     保存被 TensorBoard 分析的日志文件
@@ -508,4 +518,17 @@ qq2387301977
     'ordinary_ocr'  12306文字
     
     待更新模型部署
+    
+    
+# 遇到的错误和解决方法
+
+## 错误一:
+CTCLoss的评估函数WordAccuracy在GPU
+下会造成运存不足，经测试在CPU下正常运行
+
+## 解决方法:
+评估函数WordAccuracy放到CPU下运行，代码参考models.py
+其他GPU下出现显存不足的问题可以尝试CPU环境
+
+
     
